@@ -6,11 +6,7 @@ May 20, 2015
 https://github.com/sparkfun/BME280_Breakout
 
 Resources:
-Uses Wire.h for i2c operation
-
-Development environment specifics:
-Arduino IDE 1.6.4
-Teensy loader 1.23
+Uses TinyI2CMaster.h for i2c operation
 
 This code is released under the [MIT License](http://opensource.org/licenses/MIT).
 Please review the LICENSE.md file included with this example. If you have any questions 
@@ -29,23 +25,8 @@ TODO:
 #ifndef __BME280_H__
 #define __BME280_H__
 
-#if (ARDUINO >= 100)
-#include "Arduino.h"
-#else
-#include "WProgram.h"
-#endif
-
-#include <Wire.h>
-
-//Uncomment the following line to enable software I2C
-//You will need to have the SoftwareWire library installed
-//#include <SoftwareWire.h> //SoftwareWire by Testato. Installed from library manager.
-
-#define I2C_MODE 0
-
-#define NO_WIRE 0
-#define HARD_WIRE 1
-#define SOFT_WIRE 2
+#include <util/delay.h>
+#include <TinyI2CMaster.h>
 
 #define MODE_SLEEP 0b00
 #define MODE_FORCED 0b01
@@ -99,25 +80,24 @@ TODO:
 #define BME280_HUMIDITY_MSB_REG			0xFD //Humidity MSB
 #define BME280_HUMIDITY_LSB_REG			0xFE //Humidity LSB
 
-//Class BME280_SensorSettings.  This object is used to hold settings data.  The application
+//Class SensorSettings.  This object is used to hold settings data.  The application
 //uses this classes' data directly.  The settings are adopted and sent to the sensor
 //at special times, such as .begin.  Some are used for doing math.
 //
 //This is a kind of bloated way to do this.  The trade-off is that the user doesn't
 //need to deal with #defines or enums with bizarre names.
 //
-//A power user would strip out BME280_SensorSettings entirely, and send specific read and
+//A power user would strip out SensorSettings entirely, and send specific read and
 //write command directly to the IC. (ST #defines below)
 //
-struct BME280_SensorSettings
+struct SensorSettings
 {
   public:
 	
 	//Main Interface and mode settings
     uint8_t commInterface;
     uint8_t I2CAddress;
-    uint8_t chipSelectPin;
-
+	
 	//Deprecated settings
 	uint8_t runMode;
 	uint8_t tStandby;
@@ -125,7 +105,6 @@ struct BME280_SensorSettings
 	uint8_t tempOverSample;
 	uint8_t pressOverSample;
 	uint8_t humidOverSample;
-    float tempCorrection; // correction of temperature - added to the result
 };
 
 //Used to hold the calibration constants.  These are used
@@ -156,29 +135,26 @@ struct SensorCalibration
 	
 };
 
-//This is the main operational class of the driver.
+//This is the man operational class of the driver.
 
 class BME280
 {
   public:
     //settings
-    BME280_SensorSettings settings;
+    SensorSettings settings;
 	SensorCalibration calibration;
 	int32_t t_fine;
 	
-	//Constructor generates default BME280_SensorSettings.
+	//Constructor generates default SensorSettings.
 	//(over-ride after construction if desired)
     BME280( void );
     //~BME280() = default;
 	
-	//Call to apply BME280_SensorSettings.
+	//Call to apply SensorSettings.
 	//This also gets the SensorCalibration constants
     uint8_t begin( void );
-    bool beginI2C(TwoWire &wirePort = Wire); //Called when user provides Wire port
+    bool beginI2C(TinyI2CMaster &wirePort = TinyI2C); //Called when user provides Wire port
     
-	#ifdef SoftwareWire_h
-	bool beginI2C(SoftwareWire &wirePort); //Called when user provides a softwareWire port
-	#endif
 
 	uint8_t getMode(void); //Get the current mode: sleep, forced, or normal
 	void setMode(uint8_t mode); //Set the current mode
@@ -206,16 +182,10 @@ class BME280
 	
 	float readFloatHumidity( void );
 
-    //Temperature related methods
-    void setTemperatureCorrection(float corr);
+	//Temperature related methods
     float readTempC( void );
     float readTempF( void );
 
-	//Dewpoint related methods
-	//From Pavel-Sayekat: https://github.com/sparkfun/SparkFun_BME280_Breakout_Board/pull/6/files
-    double dewPointC(void);
-    double dewPointF(void);
-	
     //The following utilities read and write
 
 	//ReadRegisterRegion takes a uint8 array address as input and reads
@@ -232,14 +202,10 @@ class BME280
 private:
 	uint8_t checkSampleValue(uint8_t userValue); //Checks for valid over sample values
 
-    uint8_t _wireType = HARD_WIRE; //Default to Wire.h
-    TwoWire *_hardPort = NO_WIRE; //The generic connection to user's chosen I2C hardware
-    
-	#ifdef SoftwareWire_h
-	SoftwareWire *_softPort = NO_WIRE; //Or, the generic connection to software wire port
-	#endif
+        TinyI2CMaster *_hardPort; //The generic connection to user's chosen I2C hardware
+
 	
-	float _referencePressure = 101325.0; //Default but is changeable
+	 float _referencePressure;
 };
 
 #endif  // End of __BME280_H__ definition check
